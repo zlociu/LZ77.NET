@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using LZ77.Algorithms;
 
 namespace LZ77
 {
@@ -8,12 +10,13 @@ namespace LZ77
         static void Main(string[] args)
         {
             string InputName = string.Empty;
-            string OutputName = "lz77default";
+            string OutputName = string.Empty;
             if(args.Length == 1)
             {
                 InputName = args[0];
-                LZ77Manager lz77 = new LZ77Manager();
-                lz77.CompressStream()
+                OutputName = InputName + "_compress";
+                Lz77Compressor lz77 = new Lz77Compressor();
+                lz77.CompressStream(new BinaryReader(File.OpenRead(InputName + ".txt")), OutputName);
             }
             else
             {
