@@ -18,7 +18,7 @@ namespace LZ77.Algorithms
         /// <typeparam name="T"></typeparam>
         /// <param name="array">array</param>
         /// <param name="offset">how many position should shift</param>
-        /// <param name="direction">direction: 0-left, 1-right</param>
+        /// <param name="direction">direction: left | right</param>
         /// <returns>returns new array</returns>
         public static T[] ShiftElements<T>(T[] array, int offset, ShiftDirection direction = ShiftDirection.Right)
         {

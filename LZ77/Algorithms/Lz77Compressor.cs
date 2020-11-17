@@ -9,24 +9,47 @@ using static LZ77.Algorithms.ArrayExtension;
 
 namespace LZ77.Algorithms
 {
-    
+    public enum Lz77SizeType
+    {
+        D1_B64,
+        D32_B256
+    };
 
     public sealed class Lz77Compressor: ICompressor
     {
-        public ushort DictionarySize { get; private set; }
-        public ushort BufferSize { get; private set; }
+        private readonly Lz77SizeType _type;
+
+        private readonly ushort _dictionarySize;
+        private readonly ushort _bufferSize;
+
+        private readonly ushort _dictionaryBitLen;
+        private readonly ushort _bufferBitLen;
+
+        private ushort _bufferFillNumber;
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="number"></param>
-        /// <param name="substringBinaryLenght">lenght in bits of substring lenght value</param>
         /// <returns></returns>
-        private Lz77CoderOutputModel ConvertNumberToCoderOutput(ushort number, ushort substringBinaryLenght)
+        private Lz77CoderOutputModel ConvertIntToCoderOutput(int number)
         {
             Lz77CoderOutputModel model = new Lz77CoderOutputModel();
-            model.Lenght = (ushort)(number % (short) Math.Pow(2, substringBinaryLenght));
-            model.Position = (ushort)((number >> (16 - substringBinaryLenght)) % (ushort)Math.Pow(2, 16-substringBinaryLenght));
+            model.Lenght = (ushort)(number % (int)Math.Pow(2, _bufferBitLen));
+            model.Position = (ushort)((number >> (_bufferBitLen)) % (int)Math.Pow(2, _dictionaryBitLen));
+            return model;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        private Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
+        {
+            Lz77CoderOutputModel model = new Lz77CoderOutputModel();
+            model.Lenght = (ushort)(number % (short) Math.Pow(2, _bufferBitLen));
+            model.Position = (ushort)((number >> (_bufferBitLen)) % (ushort)Math.Pow(2, _dictionaryBitLen));
             return model;
         }
 
@@ -34,13 +57,25 @@ namespace LZ77.Algorithms
         /// 
         /// </summary>
         /// <param name="model"></param>
-        /// <param name="substringBinaryLenght">lenght in bits of substring lenght value</param>
         /// <returns></returns>
-        private ushort ConvertCoderOutputToNumber(Lz77CoderOutputModel model, ushort substringBinaryLenght)
+        private ushort ConvertCoderOutputToShort(Lz77CoderOutputModel model)
         {
             ushort number;
             number = model.Lenght;
-            number += (ushort)(model.Position << substringBinaryLenght);
+            number += (ushort)(model.Position << _bufferBitLen);
+            return number;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        private int ConvertCoderOutputToInt(Lz77CoderOutputModel model)
+        {
+            int number;
+            number = model.Lenght;
+            number += (model.Position << _bufferBitLen);
             return number;
         }
 
@@ -53,11 +88,30 @@ namespace LZ77.Algorithms
         /// <summary>
         /// Default constructor
         /// </summary>
-        /// <param name="dictionary">Size of dictionary, should be larger than buffer size</param>
-        /// <param name="buffer">Size of buffer</param>
-        public Lz77Compressor(int dictionary = 1024, int buffer = 64)
+        /// <param name="type">Size of dictionary and buffer</param>
+        public Lz77Compressor(Lz77SizeType type = Lz77SizeType.D1_B64)
         {
+            _type = type;
+            switch(type)
+            {
+                case Lz77SizeType.D1_B64:
+                    {
+                        _dictionarySize = 1023;
+                        _bufferSize = 63;
 
+                        _dictionaryBitLen = 10;
+                        _bufferBitLen = 6;
+                    }break;
+                case Lz77SizeType.D32_B256:
+                    {
+                        _dictionarySize = 32767;
+                        _bufferSize = 255;
+
+                        _dictionaryBitLen = 16;
+                        _bufferBitLen = 8;
+                    }
+                    break;
+            }
         }
 
         /// <summary>
@@ -67,16 +121,17 @@ namespace LZ77.Algorithms
         /// <param name="fileName">filename where compressed file will be saved</param>
         public void CompressStream(BinaryReader stream, string fileName)
         {
-            var dictionary = new char[DictionarySize];
-            var buffer = new char[BufferSize];
+            var dictionary = new char[_dictionarySize];
+            var buffer = new char[_bufferSize];
 
             var outputFile = File.Create(fileName + ".lz77");
             var outputStream = new BinaryWriter(outputFile);
 
-            int n;
+            var fst = stream.ReadChars(_bufferSize);
+            Array.Copy(fst, buffer, fst.Length);
+            _bufferFillNumber = (ushort)fst.Length;
 
-            buffer = stream.ReadChars(BufferSize);
-            do
+            while (_bufferFillNumber != 0)
             {
                 //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
                 //2. wyznacz (P,C,'a') 
@@ -89,19 +144,55 @@ namespace LZ77.Algorithms
                 //6. dodaj C + 1 nowych elementów ze 'stream' do 'buffer'
                 //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
                 var coderOut = GetLongestSubstring(ref dictionary, ref buffer);
+                if(coderOut.Lenght < _bufferFillNumber)
+                {
+                    dictionary = ArrayExtension.ShiftElements(dictionary, (coderOut.Lenght + 1), ShiftDirection.Right);
+                    Array.Copy(buffer, 0, dictionary, 0, coderOut.Lenght + 1);
+                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Lenght + 1), ShiftDirection.Left);
 
-                dictionary = ArrayExtension.ShiftElements(dictionary, (coderOut.Lenght + 1));
-                Array.Copy(buffer, 0, dictionary, 0, coderOut.Lenght + 1);
-                buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Lenght + 1), ShiftDirection.Left);
-                var tmp = stream.ReadChars(coderOut.Lenght + 1);
-                Array.Copy(tmp, 0, buffer, (BufferSize - coderOut.Lenght - 1), (coderOut.Lenght + 1));
-                n = tmp.Length;
+                    _bufferFillNumber -= (ushort)(coderOut.Lenght + 1);
 
-                var number = ConvertCoderOutputToNumber(coderOut, (ushort)((ushort)(Math.Log2(BufferSize)) + 1));
-                outputStream.Write(number);
-                outputStream.Write(coderOut.Character);
+                    var tmp = stream.ReadChars(coderOut.Lenght + 1);
+                    if (tmp.Length != 0)
+                    {
+                        Array.Copy(tmp, 0, buffer, (_bufferSize - coderOut.Lenght - 1), (coderOut.Lenght + 1));
+                        _bufferFillNumber += (ushort)(tmp.Length);
+                    }
 
-            } while (n != 0);
+                    if (_type == Lz77SizeType.D1_B64)
+                    {
+                        var number = ConvertCoderOutputToShort(coderOut);
+                        outputStream.Write(number);
+                        outputStream.Write(coderOut.Character);
+                    }
+                    else
+                    {
+                        var number = ConvertCoderOutputToInt(coderOut);
+                        outputStream.Write(number);
+                        outputStream.Write(coderOut.Character);
+                    }
+                }
+                else
+                {
+                    if (_type == Lz77SizeType.D1_B64)
+                    {
+                        var number = ConvertCoderOutputToShort(coderOut);
+                        outputStream.Write(number);
+                        outputStream.Write(coderOut.Character);
+                    }
+                    else
+                    {
+                        var number = ConvertCoderOutputToInt(coderOut);
+                        outputStream.Write(number);
+                        outputStream.Write(coderOut.Character);
+                    }
+                }
+
+            } 
+
+            outputStream.Flush();
+            outputStream.Close();
+            outputFile.Close();
         }
 
         /// <summary>
