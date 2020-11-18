@@ -19,12 +19,16 @@ namespace LZ77.Algorithms
     {
         private readonly Lz77SizeType _type;
 
+        //arrays size 
         private readonly ushort _dictionarySize;
         private readonly ushort _bufferSize;
 
+        //how many bits is needed to write: Position and Lenght from LZ77 coder output 
         private readonly ushort _dictionaryBitLen;
         private readonly ushort _bufferBitLen;
 
+        // how many elements are in arrays
+        private ushort _dictionaryFillNumber;
         private ushort _bufferFillNumber;
 
         /// <summary>
@@ -36,7 +40,7 @@ namespace LZ77.Algorithms
         {
             Lz77CoderOutputModel model = new Lz77CoderOutputModel();
             model.Lenght = (ushort)(number % (int)Math.Pow(2, _bufferBitLen));
-            model.Position = (ushort)((number >> (_bufferBitLen)) % (int)Math.Pow(2, _dictionaryBitLen));
+            model.Position = (ushort)((number >> (_bufferBitLen)) & _dictionarySize);
             return model;
         }
 
@@ -48,8 +52,8 @@ namespace LZ77.Algorithms
         private Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
         {
             Lz77CoderOutputModel model = new Lz77CoderOutputModel();
-            model.Lenght = (ushort)(number % (short) Math.Pow(2, _bufferBitLen));
-            model.Position = (ushort)((number >> (_bufferBitLen)) % (ushort)Math.Pow(2, _dictionaryBitLen));
+            model.Lenght = (ushort)(number & _bufferSize);
+            model.Position = (ushort)((number >> (_bufferBitLen)) & _dictionarySize);
             return model;
         }
 
@@ -79,9 +83,28 @@ namespace LZ77.Algorithms
             return number;
         }
 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="dictionary"></param>
+        /// <param name="buffer"></param>
+        /// <returns>should return Lenght smaller than '_bufferSize' </returns>
         private Lz77CoderOutputModel GetLongestSubstring(ref char[] dictionary, ref char[] buffer)
         {
-            var output = new Lz77CoderOutputModel();
+            ushort len, offset = 0;
+            char sign = ' ';
+            for(short i = 0; i < _bufferSize; i++)
+            {
+                len = i;
+                if(i>2000) break;
+            }
+            var output = new Lz77CoderOutputModel()
+            {
+                Lenght = len,
+                Position = offset,
+                Character = sign
+            };
             return output;
         }
 
@@ -146,11 +169,12 @@ namespace LZ77.Algorithms
                 var coderOut = GetLongestSubstring(ref dictionary, ref buffer);
                 if(coderOut.Lenght < _bufferFillNumber)
                 {
-                    dictionary = ArrayExtension.ShiftElements(dictionary, (coderOut.Lenght + 1), ShiftDirection.Right);
+                    dictionary = ArrayExtension.ShiftElements(dictionary, (coderOut.Lenght + 1), _dictionaryFillNumber, ShiftDirection.Right);
                     Array.Copy(buffer, 0, dictionary, 0, coderOut.Lenght + 1);
-                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Lenght + 1), ShiftDirection.Left);
+                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Lenght + 1), _dictionaryFillNumber, ShiftDirection.Left);
 
                     _bufferFillNumber -= (ushort)(coderOut.Lenght + 1);
+                    _dictionaryFillNumber = (ushort)Math.Min(_dictionaryFillNumber + (coderOut.Lenght + 1), _dictionarySize);
 
                     var tmp = stream.ReadChars(coderOut.Lenght + 1);
                     if (tmp.Length != 0)

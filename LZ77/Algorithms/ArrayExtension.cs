@@ -20,18 +20,18 @@ namespace LZ77.Algorithms
         /// <param name="offset">how many position should shift</param>
         /// <param name="direction">direction: left | right</param>
         /// <returns>returns new array</returns>
-        public static T[] ShiftElements<T>(T[] array, int offset, ShiftDirection direction = ShiftDirection.Right)
+        public static T[] ShiftElements<T>(T[] array, int offset, ushort elementsCount, ShiftDirection direction = ShiftDirection.Right)
         {
             T[] arr = new T[array.Length];
             if (direction == ShiftDirection.Left)
             {
-                ArraySegment<T> segment = new ArraySegment<T>(array, offset, array.Length - offset);
-                Array.Copy(segment.Array, 0, arr, 0, array.Length - offset);
+                ArraySegment<T> segment = new ArraySegment<T>(array, offset, Math.Min(elementsCount, array.Length-offset));
+                Array.Copy(segment.Array, 0, arr, 0, elementsCount);
             }
             else // ShiftDirection.Right
             {
-                ArraySegment<T> segment = new ArraySegment<T>(array, 0, array.Length - offset);
-                Array.Copy(segment.Array, 0, arr, offset, array.Length - offset);
+                ArraySegment<T> segment = new ArraySegment<T>(array, 0, Math.Min(elementsCount, array.Length - offset));
+                Array.Copy(segment.Array, 0, arr, offset, elementsCount);
             }
             return arr;
         }
