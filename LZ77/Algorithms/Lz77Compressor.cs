@@ -91,6 +91,7 @@ namespace LZ77.Algorithms
         /// <returns>should return Lenght smaller than '_bufferSize' </returns>
         private Lz77CoderOutputModel GetLongestSubstring(ref char[] dictionary, ref char[] buffer)
         {
+            // Finds a substring of max length: buffer.length - 1
             ushort len = 0, offset = 0;
             char sign = ' ';
             for(ushort i = 0; i < _bufferSize; i++)
