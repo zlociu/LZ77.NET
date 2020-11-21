@@ -5,29 +5,25 @@ using LZ77.Models;
 
 namespace LZ77.Algorithms
 {
-    class KMPSearch
+    static class KMPSearch
     {
-        // Table used to find repeating symbols in the pattern
-        private static List<int> T;
-
         /// <summary>
         /// Bulds a table that allows the search algorithm to work.
         /// Use before using the search function each time the <paramref name="buffer"/> changes.
         /// </summary>
         /// <param name="buffer"></param>
-        private static void BuildSearchTable(in char[] buffer)
+        private static int[] BuildSearchTable(char[] buffer)
         {
-            if(T.Count != buffer.Length)
-                T = new List<int>(buffer.Length);
+            int[] Tab = new int[buffer.Length];
 
             int i = 2, j = 0;
-            T[0] = -1; T[1] = 0;
+            Tab[0] = -1; Tab[1] = 0;
 
             while(i < buffer.Length)
             {
                 if(buffer[i - 1] == buffer[j])
                 {
-                    T[i] = j + 1;
+                    Tab[i] = j + 1;
                     ++i;
                     ++j;
                 }
@@ -35,15 +31,16 @@ namespace LZ77.Algorithms
                 {
                     if(j > 0)
                     {
-                        j = T[j];
+                        j = Tab[j];
                     }
                     else
                     {
-                        T[i] = 0;
+                        Tab[i] = 0;
                         ++i;
                     }
                 }
             }
+            return Tab;
         }
 
         /// <summary>
@@ -52,9 +49,12 @@ namespace LZ77.Algorithms
         /// <param name="dictionary"></param>
         /// <param name="buffer"></param>
         /// <returns>Lz77CoderOutputModel</returns>
-        public static Lz77CoderOutputModel KMPGetLongestMatch(in char[] dictionary, in char[] buffer)
+        public static Lz77CoderOutputModel? KMPGetLongestMatch(char[] dictionary, char[] buffer)
         {
-            BuildSearchTable(buffer);
+            
+            if (buffer.Length == 0) return null;
+
+            var Tab = BuildSearchTable(buffer);
 
             var output = new Lz77CoderOutputModel();
 
@@ -86,10 +86,10 @@ namespace LZ77.Algorithms
                 }
                 else
                 {
-                    m = m + i - T[i];
+                    m = m + i - Tab[i];
                     if(i > 0)
                     {
-                        i = T[i];
+                        i = Tab[i];
                     }
                 }
             }

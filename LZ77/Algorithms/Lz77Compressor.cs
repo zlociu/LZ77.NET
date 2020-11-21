@@ -89,21 +89,8 @@ namespace LZ77.Algorithms
         /// <param name="dictionary"></param>
         /// <param name="buffer"></param>
         /// <returns>should return Lenght smaller than '_bufferSize' </returns>
-        private Lz77CoderOutputModel GetLongestSubstring(ref char[] dictionary, ref char[] buffer)
+        private Lz77CoderOutputModel? GetLongestSubstring(char[] dictionary, char[] buffer)
         {
-            /*ushort len = 0, offset = 0;
-            char sign = ' ';
-            for(ushort i = 0; i < _bufferSize; i++)
-            {
-                len = i;
-                if(i>2000) break;
-            }
-            var output = new Lz77CoderOutputModel()
-            {
-                Length = len,
-                Position = offset,
-                Character = sign
-            };*/
             return KMPSearch.KMPGetLongestMatch(dictionary, buffer);
         }
 
@@ -140,7 +127,7 @@ namespace LZ77.Algorithms
             Array.Copy(fst, buffer, fst.Length);
             _bufferFillNumber = (ushort)fst.Length;
 
-            while (_bufferFillNumber != 0)
+            while (_bufferFillNumber > 0)
             {
                 //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
                 //2. wyznacz (P,C,'a') 
@@ -154,18 +141,27 @@ namespace LZ77.Algorithms
                 //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
 
                 //1 2
-                var coderOut = GetLongestSubstring(ref dictionary, ref buffer);
+                var coderOut = GetLongestSubstring(dictionary, buffer);
                 if(coderOut.Length < _bufferFillNumber)
                 {
                     //3
-                    dictionary = ArrayExtension.ShiftElements(dictionary, (coderOut.Length + 1), _dictionaryFillNumber, ShiftDirection.Right);
+                    if ((_dictionaryFillNumber + coderOut.Length + 1) > _dictionarySize)
+                    {
+                        var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
+                        dictionary = ArrayExtension.ShiftElements(dictionary, rest, _dictionaryFillNumber, ShiftDirection.Left);
+                        _dictionaryFillNumber -= rest;
+                    }
                     //4
-                    Array.Copy(buffer, 0, dictionary, 0, coderOut.Length + 1);
+                    //char[] reverse = new char[coderOut.Length + 1];
+                    //Array.Copy(buffer, 0, reverse, 0, coderOut.Length + 1);
+                    //Array.Reverse(reverse);
+
+                    Array.Copy(buffer, 0, dictionary, _dictionaryFillNumber, coderOut.Length + 1);
                     //5
-                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Length + 1), _dictionaryFillNumber, ShiftDirection.Left);
+                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Length + 1), _bufferFillNumber, ShiftDirection.Left);
 
                     _bufferFillNumber -= (ushort)(coderOut.Length + 1);
-                    _dictionaryFillNumber = (ushort)Math.Min(_dictionaryFillNumber + (coderOut.Length + 1), _dictionarySize);
+                    _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
 
                     //6
                     var tmp = stream.ReadChars(coderOut.Length + 1);
@@ -181,6 +177,7 @@ namespace LZ77.Algorithms
                 }
                 else
                 {
+                    _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
                     var number = ConvertCoderOutputToShort(coderOut);
                     outputStream.Write(number);
                     outputStream.Write(coderOut.Character);                    

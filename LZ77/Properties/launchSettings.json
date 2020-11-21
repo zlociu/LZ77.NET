@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "LZ77": {
+      "commandName": "Project",
+      "commandLineArgs": "test"
+    }
+  }
+}
