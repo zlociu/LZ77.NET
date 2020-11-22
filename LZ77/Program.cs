@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text;
 using LZ77.Algorithms;
+using LZ77.Interfaces;
 
 namespace LZ77
 {
@@ -11,14 +12,27 @@ namespace LZ77
         static void Main(string[] args)
         {
             
-            string InputName = string.Empty;
-            string OutputName = string.Empty;
+            string InputName;
+            string OutputName;
+
             if(args.Length == 1)
             {
                 InputName = args[0] + ".txt";
                 OutputName = InputName;
-                Lz77Compressor lz77 = new Lz77Compressor();
-                lz77.CompressStream(new BinaryReader(File.OpenRead(InputName)), OutputName);
+                ICompressor lz77 = new Lz77Compressor();
+
+                try
+                {
+                    //lz77.CompressStream(new BinaryReader(File.OpenRead(InputName)), OutputName);
+                    //lz77.DecompressStream(new BinaryReader(File.OpenRead(OutputName + ".lz77")), "wynik");
+                    lz77.CompressFile(InputName);
+                    lz77.DecompressFile(InputName + ".lz77");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+                
             }
             else
             {
