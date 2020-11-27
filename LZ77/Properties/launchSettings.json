@@ -2,7 +2,7 @@
   "profiles": {
     "LZ77": {
       "commandName": "Project",
-      "commandLineArgs": "makbet"
+      "commandLineArgs": "makbet.txt.lz77"
     }
   }
 }

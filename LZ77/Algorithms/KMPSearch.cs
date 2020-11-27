@@ -73,7 +73,7 @@ namespace LZ77.Algorithms
                     if(i == buffer.Length - 1)
                     {
                         output.Position = (ushort)m;
-                        output.Length = (ushort)i;
+                        output.Length = (byte)i;
                         output.Character = buffer[i];
                         return output;
                     }
@@ -95,7 +95,7 @@ namespace LZ77.Algorithms
             }
 
             output.Position = (ushort)bestPos;
-            output.Length = (ushort)bestLength;
+            output.Length = (byte)bestLength;
             output.Character = buffer[bestLength];
 
             return output;

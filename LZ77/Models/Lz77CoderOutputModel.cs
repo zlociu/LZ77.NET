@@ -7,7 +7,7 @@ namespace LZ77.Models
     class Lz77CoderOutputModel
     {     
         public ushort Position { get; set; }
-        public ushort Length { get; set; }
+        public byte Length { get; set; }
         public char Character { get; set; }
 
         public Lz77CoderOutputModel()
