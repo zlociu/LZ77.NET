@@ -13,7 +13,7 @@ namespace LZ77
         public bool Decompress { get; set; }
         public bool Time { get; set; }
         public int BufferSize { get; set; }
-        public string OutputFile { get; set; }
+        public string? OutputFile { get; set; }
         public string InputFile { get; set; }
 
         public ArgOptions()
@@ -22,7 +22,7 @@ namespace LZ77
             Decompress = false;
             Time = false;
             BufferSize = 64;
-            OutputFile = string.Empty;
+            OutputFile = null;
             InputFile = string.Empty;
         }
     }
@@ -33,6 +33,7 @@ namespace LZ77
         static void PrintErrorCommand()
         {
             Console.WriteLine("[-d | -c] <filename> [-b <value>] [-o <filename>]");
+            Console.WriteLine("-h \t\t Show this help menu");
             Console.WriteLine("-d \t\t Decompress specified file");
             Console.WriteLine("-c \t\t Compress specified file");
             Console.WriteLine("-b <int value> \t Buffer size (32, 64, 128, 256)");
@@ -91,6 +92,12 @@ namespace LZ77
                             {
                                 options.Time = true;
                                 i++;
+                            }
+                            break;
+                        case "-h":
+                            {
+                                PrintErrorCommand();
+                                return;
                             }
                             break;
                         default:
