@@ -7,7 +7,7 @@ using LZ77.Interfaces;
 
 namespace LZ77
 {
-    public class ArgOptions
+    internal class ArgOptions
     {
         public bool Compress { get; set; }
         public bool Decompress { get; set; }
@@ -78,6 +78,7 @@ namespace LZ77
                             {
                                 try
                                 {
+                                    if (parameters[i + 1].StartsWith('-')) throw new Exception();
                                     options.OutputFile = parameters[i + 1];
                                     i += 2;
                                 }
@@ -99,7 +100,6 @@ namespace LZ77
                                 PrintErrorCommand();
                                 return;
                             }
-                            break;
                         default:
                             {
                                 PrintErrorCommand();
