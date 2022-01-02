@@ -1,21 +1,21 @@
 # LZ77.NET
 
-.NET Implementation of LZ77 Algorithm
+C# Implementation of [LZ77](https://en.wikipedia.org/wiki/LZ77_and_LZ78) Algorithm.
 
-## How to build
-Download nuget package: LZ77.NET  
-Add in your project
-```csharp 
-  using LZ77; 
-```
+### How to build
+1. Go to folder with ___LZ77.csproj___ file.
+2. Open CMD.
+3. Type: `dotnet build -c Release`
 
-## Example of usage in C#
-```csharp
-  // Compress and decompress file
-  int main(string[] args)
-  {
-    ICompressor compressor = new Lz77Compressor(Lz77BufferSize.B64);
-    compressor.CompressFile("inputFileName.txt");
-    compressor.DecompressFile("inputCompressedFile.txt.lz77", "outputFile.txt");
-  }
-```
+### Features
+ - compress text files
+ - decompress ___*.lz77___ files
+ - measure process time
+
+### Usage examples (Windows)
+ - Compress file and measure time:  
+   `LZ77.exe -c <filename> -t` 
+ - Decompress file:  
+   `LZ77.exe -d <filename.lz77> -o <outputFileName>`
+ - Print help:  
+   `LZ77.exe -h`

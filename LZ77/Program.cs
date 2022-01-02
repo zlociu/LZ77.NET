@@ -78,9 +78,18 @@ namespace LZ77
                             {
                                 try
                                 {
-                                    if (parameters[i + 1].StartsWith('-')) throw new Exception();
-                                    options.OutputFile = parameters[i + 1];
-                                    i += 2;
+                                    if(parameters[i + 1] == "--")
+                                    {
+                                        options.OutputFile = parameters[i + 2];
+                                        i += 3;
+                                    }
+                                    else
+                                    {
+                                        if (parameters[i + 1].StartsWith('-')) throw new Exception();
+                                        options.OutputFile = parameters[i + 1];
+                                        i += 2;
+                                    }
+                                    
                                 }
                                 catch(Exception)
                                 {
@@ -100,6 +109,13 @@ namespace LZ77
                                 PrintErrorCommand();
                                 return;
                             }
+                        case "--":
+                            {
+                                if (parameters[i + 1].StartsWith('-')) throw new Exception();
+                                options.InputFile = parameters[i + 1];
+                                i += 2;
+                            }
+                            break;
                         default:
                             {
                                 PrintErrorCommand();
@@ -126,7 +142,6 @@ namespace LZ77
 
             if (options.BufferSize == 32 || options.BufferSize == 64 || options.BufferSize == 128 || options.BufferSize == 256)
             {
-                
                 lz77 = new Lz77Compressor((Lz77BufferSize)options.BufferSize);
             }
             else

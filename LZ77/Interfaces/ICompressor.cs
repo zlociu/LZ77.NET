@@ -14,7 +14,7 @@ namespace LZ77.Interfaces
         MemoryStream DecompressStreamToMemory(BinaryReader stream);
 
         void CompressFile(string fileName);
-        void DecompressFile(string fileName, string? outputFileName = null);
+        void DecompressFile(string fileName, string? outputFileName);
 
     }
 }

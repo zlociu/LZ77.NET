@@ -5,25 +5,25 @@ using LZ77.Models;
 
 namespace LZ77.Algorithms
 {
-    static class KMPSearch
+    static internal class KMPSearch
     {
         /// <summary>
         /// Bulds a table that allows the search algorithm to work.
         /// Use before using the search function each time the <paramref name="buffer"/> changes.
         /// </summary>
         /// <param name="buffer"></param>
-        private static int[] BuildSearchTable(char[] buffer)
+        private static int[] BuildSearchTable(ReadOnlySpan<char> buffer)
         {
-            int[] Tab = new int[buffer.Length];
+            int[] tab = new int[buffer.Length];
 
             int i = 2, j = 0;
-            Tab[0] = -1; Tab[1] = 0;
+            tab[0] = -1; tab[1] = 0;
 
             while(i < buffer.Length)
             {
                 if(buffer[i - 1] == buffer[j])
                 {
-                    Tab[i] = j + 1;
+                    tab[i] = j + 1;
                     ++i;
                     ++j;
                 }
@@ -31,16 +31,16 @@ namespace LZ77.Algorithms
                 {
                     if(j > 0)
                     {
-                        j = Tab[j];
+                        j = tab[j];
                     }
                     else
                     {
-                        Tab[i] = 0;
+                        tab[i] = 0;
                         ++i;
                     }
                 }
             }
-            return Tab;
+            return tab;
         }
 
         /// <summary>
@@ -49,14 +49,12 @@ namespace LZ77.Algorithms
         /// <param name="dictionary"></param>
         /// <param name="buffer"></param>
         /// <returns>Lz77CoderOutputModel</returns>
-        public static Lz77CoderOutputModel? KMPGetLongestMatch(char[] dictionary, char[] buffer)
+        public static Lz77CoderOutputModel KMPGetLongestMatch(ReadOnlySpan<char> dictionary, ReadOnlySpan<char> buffer)
         {
             
-            if (buffer.Length == 0) return null;
+            if (buffer.Length == 0) throw new IndexOutOfRangeException();
 
-            var Tab = BuildSearchTable(buffer);
-
-            var output = new Lz77CoderOutputModel();
+            var tab = BuildSearchTable(buffer);
 
             int m = 0;  // Beginning of the first fit in dictionary
             int i = 0;  // Position of the current char in buffer
@@ -72,10 +70,7 @@ namespace LZ77.Algorithms
 
                     if(i == buffer.Length - 1)
                     {
-                        output.Position = (ushort)m;
-                        output.Length = (byte)i;
-                        output.Character = buffer[i];
-                        return output;
+                        return new Lz77CoderOutputModel{ Position = (ushort)m, Length = (byte)i, Character = buffer[i] };
                     }
 
                     if (i > bestLength)
@@ -86,19 +81,15 @@ namespace LZ77.Algorithms
                 }
                 else
                 {
-                    m = m + i - Tab[i];
+                    m = m + i - tab[i];
                     if(i > 0)
                     {
-                        i = Tab[i];
+                        i = tab[i];
                     }
                 }
             }
 
-            output.Position = (ushort)bestPos;
-            output.Length = (byte)bestLength;
-            output.Character = buffer[bestLength];
-
-            return output;
+           return new Lz77CoderOutputModel{ Position = (ushort)bestPos, Length = (byte)bestLength, Character = buffer[bestLength] };
         }
     }
 }

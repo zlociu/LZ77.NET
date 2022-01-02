@@ -4,17 +4,10 @@ using System.Text;
 
 namespace LZ77.Models
 {
-    class Lz77CoderOutputModel
+    public record Lz77CoderOutputModel
     {     
-        public ushort Position { get; set; }
-        public byte Length { get; set; }
-        public char Character { get; set; }
-
-        public Lz77CoderOutputModel()
-        {
-            Position = 0;
-            Length = 0;
-            Character = ' ';
-        }
+        public ushort Position { get; init; } = default!;
+        public byte Length { get; init; } = default!;
+        public char Character { get; init; } = default!;
     }
 }
