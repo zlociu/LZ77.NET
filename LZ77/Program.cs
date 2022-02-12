@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
-using System.Text;
 using LZ77.Algorithms;
 using LZ77.Interfaces;
 
 namespace LZ77
 {
-    internal class ArgOptions
+    internal record ArgOptions
     {
         public bool Compress { get; set; }
         public bool Decompress { get; set; }
@@ -85,7 +83,7 @@ namespace LZ77
                                     }
                                     else
                                     {
-                                        if (parameters[i + 1].StartsWith('-')) throw new Exception();
+                                        if (parameters[i + 1].StartsWith('-')) throw new ArgumentException();
                                         options.OutputFile = parameters[i + 1];
                                         i += 2;
                                     }
@@ -111,7 +109,6 @@ namespace LZ77
                             }
                         case "--":
                             {
-                                if (parameters[i + 1].StartsWith('-')) throw new Exception();
                                 options.InputFile = parameters[i + 1];
                                 i += 2;
                             }
@@ -125,7 +122,7 @@ namespace LZ77
                 }
                 else
                 {
-                    if (options.InputFile == string.Empty)
+                    if (string.IsNullOrEmpty(options.InputFile))
                     {
                         options.InputFile = parameters[i];
                         i++;
@@ -164,10 +161,6 @@ namespace LZ77
                 if(options.Decompress)  lz77.DecompressFile(options.InputFile, options.OutputFile);
                 s1.Stop();
                 if(options.Time) Console.WriteLine("Time: {0}ms",s1.ElapsedMilliseconds);
-                
-
-                //lz77.CompressFile(InputName);
-                //lz77.DecompressFile(InputName + ".lz77");
             }
             catch (Exception ex)
             {

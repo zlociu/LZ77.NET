@@ -17,9 +17,20 @@ namespace LZ77.Algorithms
         B256 = 255
     };
 
+    // ------------< Compression algorithm >-------------
+    //1. find longest substring in 'buffer'(from left) which exists in 'dictionary'
+    //2. create (P,C,'a') where:
+    //      P - index where substring starts in 'dictionary'
+    //      C - substring length
+    //      'a' - next sign in 'buffer' after substring 
+    //3. move 'dictionary' (C + 1) positions right
+    //4. copy C + 1 elements from buffer to 'dictionary'
+    //5. move C + 1 elements left in 'buffer'
+    //6. move C + 1 new elements from 'stream' to 'buffer'
+    //7. add to output file C + (P << bitLen(C)) and 'a' as a number and sign
+
     public sealed class Lz77Compressor: ICompressor
     { 
-
         //arrays size 
         private readonly ushort _dictionarySize;
         private readonly ushort _bufferSize;
@@ -29,7 +40,7 @@ namespace LZ77.Algorithms
         private readonly ushort _bufferBitLen;  
 
         /// <summary>
-        /// 
+        /// Convert ushort number to lz77 output
         /// </summary>
         /// <param name="number"></param>
         /// <returns></returns>
@@ -43,7 +54,7 @@ namespace LZ77.Algorithms
         }
 
         /// <summary>
-        /// 
+        /// Convert lz77 output to ushort number
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
@@ -69,88 +80,13 @@ namespace LZ77.Algorithms
         /// <summary>
         /// Default constructor
         /// </summary>
-        /// <param name="type">Size of dictionary and buffer</param>
+        /// <param name="bufferSize">Size of buffer in bytes</param>
         public Lz77Compressor(Lz77BufferSize bufferSize = Lz77BufferSize.B64)
         {
             _dictionarySize = 32767;
             _bufferSize = (ushort)bufferSize;
             //_dictionaryBitLen = 10;
             _bufferBitLen = 8;     
-        }
-
-        /// <summary>
-        /// Compress input stream and save into new file with .lz77 extension
-        /// </summary>
-        /// <param name="stream">binary stream, source of coderOut to compress</param>
-        /// <param name="fileName">filename where compressed file will be saved</param>
-        public void CompressStream(BinaryReader stream, string fileName)
-        {
-            var dictionary = new char[_dictionarySize];
-            var buffer = new char[_bufferSize];
-
-            var outputFile = File.Create(fileName + ".lz77");
-            var outputStream = new BinaryWriter(outputFile);
-
-            ushort _dictionaryFillNumber = 0;
-            ushort _bufferFillNumber;
-
-            var fst = stream.ReadChars(_bufferSize);
-            Array.Copy(fst, buffer, fst.Length);
-            _bufferFillNumber = (ushort)fst.Length;
-
-            while (_bufferFillNumber > 0)
-            {
-                //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
-                //2. wyznacz (P,C,'a') 
-                //      P - index gdzie się zaczyna ciąg w 'dictionary'
-                //      C - długość ciągu
-                //      'a' - następny znak w 'buffer' po tym ciągu
-                //3. przesuń 'dictionary' o C + 1 pozycji w prawo
-                //4. skopiuj C + 1 elementów z buffer do 'dictionary'
-                //5. przesuń C + 1 elementów w lewo w 'buffer'
-                //6. dodaj C + 1 nowych elementów ze 'stream' do 'buffer'
-                //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
-
-                //1 2
-                var coderOut = GetLongestSubstring(dictionary, buffer);
-                if(coderOut.Length < _bufferFillNumber)
-                {
-                    //3
-                    if ((_dictionaryFillNumber + coderOut.Length + 1) > _dictionarySize)
-                    {
-                        var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
-                        dictionary = ArrayExtension.ShiftElements(dictionary, rest, _dictionaryFillNumber);
-                        _dictionaryFillNumber -= rest;
-                    }
-                    //4
-                    Array.Copy(buffer, 0, dictionary, _dictionaryFillNumber, coderOut.Length + 1);
-                    //5
-                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Length + 1), _bufferFillNumber);
-
-                    _bufferFillNumber -= (ushort)(coderOut.Length + 1);
-                    _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
-
-                    //6
-                    var tmp = stream.ReadChars(coderOut.Length + 1);
-                    if (tmp.Length != 0)
-                    {
-                        //Array.Copy(tmp, 0, buffer, (_bufferSize - coderOut.Length - 1), tmp.Length);
-                        tmp.CopyTo(buffer, (_bufferSize - coderOut.Length - 1));
-                        _bufferFillNumber += (ushort)(tmp.Length);
-                    }
-                    //7
-                    outputStream.Write(coderOut);                 
-                }
-                else
-                {
-                    _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
-                    outputStream.Write(coderOut);
-                }
-            } 
-
-            outputStream.Flush();
-            outputStream.Close();
-            outputFile.Close();
         }
 
         /// <summary>
@@ -258,142 +194,6 @@ namespace LZ77.Algorithms
         }
 
         /// <summary>
-        /// Compress input stream and save into new file with .lz77 extension
-        /// </summary>
-        /// <param name="stream">binary stream, source of coderOut to compress</param>
-        /// <param name="fileName">filename where compressed file will be saved</param>
-        public MemoryStream CompressStreamToMemory(BinaryReader stream)
-        {
-            var dictionary = new char[_dictionarySize];
-            var buffer = new char[_bufferSize];
-
-            var memory = new MemoryStream();
-            var outputStream = new BinaryWriter(memory);
-
-            ushort _dictionaryFillNumber = 0;
-            ushort _bufferFillNumber;
-
-            var fst = stream.ReadChars(_bufferSize);
-            Array.Copy(fst, buffer, fst.Length);
-            _bufferFillNumber = (ushort)fst.Length;
-
-            while (_bufferFillNumber > 0)
-            {
-                //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
-                //2. wyznacz (P,C,'a') 
-                //      P - index gdzie się zaczyna ciąg w 'dictionary'
-                //      C - długość ciągu
-                //      'a' - następny znak w 'buffer' po tym ciągu
-                //3. przesuń 'dictionary' o C + 1 pozycji w prawo
-                //4. skopiuj C + 1 elementów z buffer do 'dictionary'
-                //5. przesuń C + 1 elementów w lewo w 'buffer'
-                //6. dodaj C + 1 nowych elementów ze 'stream' do 'buffer'
-                //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
-
-                //1 2
-                var coderOut = GetLongestSubstring(dictionary, buffer);
-                if (coderOut.Length < _bufferFillNumber)
-                {
-                    //3
-                    if ((_dictionaryFillNumber + coderOut.Length + 1) > _dictionarySize)
-                    {
-                        var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
-                        dictionary = ArrayExtension.ShiftElements(dictionary, rest, _dictionaryFillNumber);
-                        _dictionaryFillNumber -= rest;
-                    }
-                    //4
-                    Array.Copy(buffer, 0, dictionary, _dictionaryFillNumber, coderOut.Length + 1);
-                    //5
-                    buffer = ArrayExtension.ShiftElements(buffer, (coderOut.Length + 1), _bufferFillNumber);
-
-                    _bufferFillNumber -= (ushort)(coderOut.Length + 1);
-                    _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
-
-                    //6
-                    var tmp = stream.ReadChars(coderOut.Length + 1);
-                    if (tmp.Length != 0)
-                    {
-                        //Array.Copy(tmp, 0, buffer, (_bufferSize - coderOut.Length - 1), tmp.Length);
-                        tmp.CopyTo(buffer, (_bufferSize - coderOut.Length - 1));
-                        _bufferFillNumber += (ushort)(tmp.Length);
-                    }
-                    //7
-                    outputStream.Write(coderOut);
-                }
-                else
-                {
-                    _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
-                    outputStream.Write(coderOut);
-                }
-            }
-
-            return memory;
-        }
-
-        /// <summary>
-        /// Decompress input stream and save original data to new file
-        /// </summary>
-        /// <param name="stream">binary stream, source of coderOut to decompress</param>
-        /// <param name="fileName">filename where decompressed file will be saved</param>
-        public void DecompressStream(BinaryReader stream, string fileName)
-        {
-            var dictionary = new char[2 * _dictionarySize];
-            var buffer = new char[_bufferSize];
-
-            var outputFile = File.Create(fileName + ".txt");
-            var outputStream = new BinaryWriter(outputFile);
-
-            ushort _dictionaryFillNumber = 0;
-
-            ushort _dictionarySegmentOffset = 0;
-
-            while (stream.BaseStream.Position != stream.BaseStream.Length)
-            {
-                //1. pobierz (P,C,'a')
-                //2. skopiuj na podstawie P i C z 'dictionary' do 'buffer'
-                //3. doklej do 'buffer' 'a'
-                //4. przesuń C + 1 elementów w prawo w 'dictionary'
-                //5. dodaj C + 1 nowych elementów ze 'buffer' do 'dictionary'
-                //6. dodaj do pliku wyjsciowego 'buffer'
-
-                //1
-                var model = new Lz77CoderOutputModel
-                {
-                    Position = stream.ReadUInt16(),
-                    Length = stream.ReadByte(),
-                    Character = stream.ReadChar()
-                };
-                //2
-                Array.Copy(dictionary, model.Position, buffer, 0, model.Length);
-                //3
-                buffer[model.Length] = model.Character;
-                //4
-                if ((_dictionaryFillNumber + model.Length + 1) > _dictionarySize)
-                {
-                    if ((_dictionarySegmentOffset + model.Length + 1) >= _dictionarySize)
-                    {  
-                        dictionary = ArrayExtension.ShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
-                        _dictionarySegmentOffset = 0;
-                    }
-                    var rest = (ushort)((model.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
-                    _dictionarySegmentOffset += rest;
-                    _dictionaryFillNumber -= rest;
-                }
-                //5
-                Array.Copy(buffer, 0, dictionary, _dictionaryFillNumber, model.Length + 1);
-                _dictionaryFillNumber += (ushort)(model.Length + 1);
-
-                //6
-                var span = new ReadOnlySpan<char>(buffer);
-                outputStream.Write(span.Slice(0, model.Length + 1));
-            }
-
-            outputStream.Flush();
-            outputStream.Close();
-            outputFile.Close();
-        }
-
-        /// <summary>
         /// Decompress input stream and save original data to new file
         /// </summary>
         /// <param name="stream">binary stream, source of coderOut to decompress</param>
@@ -475,60 +275,93 @@ namespace LZ77.Algorithms
             }
             
         }
-
-        /// <summary>
-        /// Decompress input stream and save original data to new file
-        /// </summary>
-        /// <param name="stream">binary stream, source of coderOut to decompress</param>
-        /// <param name="fileName">filename where decompressed file will be saved</param>
-        public MemoryStream DecompressStreamToMemory(BinaryReader stream)
+    
+        static class KMPSearch
         {
-            var dictionary = new char[_dictionarySize];
-            var buffer = new char[_bufferSize];
-
-            var memory = new MemoryStream();
-            var outputStream = new BinaryWriter(memory);
-
-            ushort _dictionaryFillNumber = 0;
-
-            Lz77CoderOutputModel model;
-
-            while (stream.BaseStream.Position != stream.BaseStream.Length)
+            /// <summary>
+            /// Bulds a table that allows the search algorithm to work.
+            /// Use before using the search function each time the <paramref name="buffer"/> changes.
+            /// </summary>
+            /// <param name="buffer"></param>
+            private static int[] BuildSearchTable(ReadOnlySpan<char> buffer)
             {
-                //1. pobierz (P,C,'a')
-                //2. skopiuj na podstawie P i C z 'dictionary' do 'buffer'
-                //3. doklej do 'buffer' 'a'
-                //4. przesuń C + 1 elementów w prawo w 'dictionary'
-                //5. dodaj C + 1 nowych elementów ze 'buffer' do 'dictionary'
-                //6. dodaj do pliku wyjsciowego 'buffer'
+                int[] tab = new int[buffer.Length];
 
-                //1
-                model = new Lz77CoderOutputModel
+                int i = 2, j = 0;
+                tab[0] = -1; tab[1] = 0;
+
+                while(i < buffer.Length)
                 {
-                    Position = stream.ReadUInt16(),
-                    Length = stream.ReadByte(),
-                    Character = stream.ReadChar()
-                };
-                //2
-                Array.Copy(dictionary, model.Position, buffer, 0, model.Length);
-                //3
-                buffer[model.Length] = model.Character;
-                //4
-                if ((_dictionaryFillNumber + model.Length + 1) > _dictionarySize)
-                {
-                    var rest = (ushort)((model.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
-                    dictionary = ArrayExtension.ShiftElements(dictionary, rest, _dictionaryFillNumber);
-                    _dictionaryFillNumber -= rest;
+                    if(buffer[i - 1] == buffer[j])
+                    {
+                        tab[i] = j + 1;
+                        ++i;
+                        ++j;
+                    }
+                    else
+                    {
+                        if(j > 0)
+                        {
+                            j = tab[j];
+                        }
+                        else
+                        {
+                            tab[i] = 0;
+                            ++i;
+                        }
+                    }
                 }
-                //5
-                Array.Copy(buffer, 0, dictionary, _dictionaryFillNumber, model.Length + 1);
-                _dictionaryFillNumber += (ushort)(model.Length + 1);
-
-                //6
-                var span = new ReadOnlySpan<char>(buffer);
-                outputStream.Write(span.Slice(0, model.Length + 1));
+                return tab;
             }
-            return memory;
+
+            /// <summary>
+            /// Finds the longest matching pattern from <paramref name="buffer"/> inside <paramref name="dictionary"/>.
+            /// </summary>
+            /// <param name="dictionary"></param>
+            /// <param name="buffer"></param>
+            /// <returns>Lz77CoderOutputModel</returns>
+            public static Lz77CoderOutputModel KMPGetLongestMatch(ReadOnlySpan<char> dictionary, ReadOnlySpan<char> buffer)
+            {
+                
+                if (buffer.Length == 0) throw new IndexOutOfRangeException();
+
+                var tab = BuildSearchTable(buffer);
+
+                int m = 0;  // Beginning of the first fit in dictionary
+                int i = 0;  // Position of the current char in buffer
+
+                int bestPos = 0;
+                int bestLength = 0;
+
+                while(m + i < dictionary.Length)
+                {
+                    if(buffer[i] == dictionary[m + i])
+                    {
+                        ++i;
+
+                        if(i == buffer.Length - 1)
+                        {
+                            return new Lz77CoderOutputModel{ Position = (ushort)m, Length = (byte)i, Character = buffer[i] };
+                        }
+
+                        if (i > bestLength)
+                        {
+                            bestLength = i;
+                            bestPos = m;
+                        }
+                    }
+                    else
+                    {
+                        m = m + i - tab[i];
+                        if(i > 0)
+                        {
+                            i = tab[i];
+                        }
+                    }
+                }
+
+            return new Lz77CoderOutputModel{ Position = (ushort)bestPos, Length = (byte)bestLength, Character = buffer[bestLength] };
+            }
         }
     }
 }
