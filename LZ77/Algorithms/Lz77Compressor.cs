@@ -44,7 +44,7 @@ namespace LZ77.Algorithms
         /// </summary>
         /// <param name="number"></param>
         /// <returns></returns>
-        private Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
+        public Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
         {
             return new Lz77CoderOutputModel 
             {
@@ -92,105 +92,96 @@ namespace LZ77.Algorithms
         /// <summary>
         /// Compress input stream and save into new file with .lz77 extension
         /// </summary>
-        /// <param name="fileName">filename where compressed file will be saved</param>
-        public void CompressFile(string fileName)
+        /// <param name="fileName">file name of compressing file </param>
+        /// <param name="outputFileName">file name where compressed file will be saved (without '.lz77' suffix</param>
+        public void CompressFile(string fileName, string? outputFileName)
         {
             var dictionary = new char[2 * _dictionarySize];
             var buffer = new char[2 * _bufferSize];
 
-            if(fileName.EndsWith(".txt"))
+            var inputFile = File.OpenRead(fileName);
+            var outputFile = File.Create(outputFileName is null ? (fileName + ".lz77") : (outputFileName + ".lz77"));
+
+            var inputStream = new BinaryReader(inputFile);
+            var outputStream = new BinaryWriter(outputFile);
+
+            ushort _dictionaryFillNumber = 0;
+            ushort _bufferFillNumber;
+
+            ushort _bufferSegmentOffset = 0;
+            ushort _dictionarySegmentOffset = 0;
+
+            var fst = inputStream.ReadChars(_bufferSize);
+            Array.Copy(fst, buffer, fst.Length);
+            _bufferFillNumber = (ushort)fst.Length;
+
+            while (_bufferFillNumber > 0)
             {
-                var inputFile = File.OpenRead(fileName);
-                var outputFile = File.Create(fileName + ".lz77");
+                //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
+                //2. wyznacz (P,C,'a') 
+                //      P - index gdzie się zaczyna ciąg w 'dictionary'
+                //      C - długość ciągu
+                //      'a' - następny znak w 'buffer' po tym ciągu
+                //3. przesuń 'dictionary' o C + 1 pozycji w prawo
+                //4. skopiuj C + 1 elementów z buffer do 'dictionary'
+                //5. przesuń C + 1 elementów w lewo w 'buffer'
+                //6. dodaj C + 1 nowych elementów ze 'stream' do 'buffer'
+                //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
 
-                var inputStream = new BinaryReader(inputFile);
-                var outputStream = new BinaryWriter(outputFile);
-
-                ushort _dictionaryFillNumber = 0;
-                ushort _bufferFillNumber;
-
-                ushort _bufferSegmentOffset = 0;
-                ushort _dictionarySegmentOffset = 0;
-
-                var fst = inputStream.ReadChars(_bufferSize);
-                Array.Copy(fst, buffer, fst.Length);
-                _bufferFillNumber = (ushort)fst.Length;
-
-                while (_bufferFillNumber > 0)
+                //1 2
+                var coderOut = GetLongestSubstring( 
+                    new ReadOnlySpan<char>(dictionary).Slice(_dictionarySegmentOffset, _dictionarySize), 
+                    new ReadOnlySpan<char>(buffer).Slice(_bufferSegmentOffset, _bufferSize));
+                if (coderOut.Length < _bufferFillNumber)
                 {
-                    //1. znajdź najdłuższy ciąg w 'buffer' ktory istnieje w 'dictionary'
-                    //2. wyznacz (P,C,'a') 
-                    //      P - index gdzie się zaczyna ciąg w 'dictionary'
-                    //      C - długość ciągu
-                    //      'a' - następny znak w 'buffer' po tym ciągu
-                    //3. przesuń 'dictionary' o C + 1 pozycji w prawo
-                    //4. skopiuj C + 1 elementów z buffer do 'dictionary'
-                    //5. przesuń C + 1 elementów w lewo w 'buffer'
-                    //6. dodaj C + 1 nowych elementów ze 'stream' do 'buffer'
-                    //7. dodaj do pliku wyjsciowego C + (P << bitLen(C)) oraz 'a' jako liczba i znak
-
-                    //1 2
-                    var coderOut = GetLongestSubstring( 
-                        new ReadOnlySpan<char>(dictionary).Slice(_dictionarySegmentOffset, _dictionarySize), 
-                        new ReadOnlySpan<char>(buffer).Slice(_bufferSegmentOffset, _bufferSize));
-                    if (coderOut.Length < _bufferFillNumber)
+                    //3
+                    if ((_dictionaryFillNumber + coderOut.Length + 1) > _dictionarySize)
                     {
-                        //3
-                        if ((_dictionaryFillNumber + coderOut.Length + 1) > _dictionarySize)
-                        {
-                            if ((_dictionarySegmentOffset + coderOut.Length + 1) >= _dictionarySize)
-                            {  
-                                dictionary = ArrayExtension.ShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
-                                _dictionarySegmentOffset = 0;
-                            }
-                            var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
-                            _dictionarySegmentOffset += rest;
-                            _dictionaryFillNumber -= rest;
-                        }   
-                        //4
-                        Array.Copy(buffer, _bufferSegmentOffset, dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1);
-                        //5
-                        if(_bufferSegmentOffset + (coderOut.Length + 1) >= _bufferSize) 
-                        {
-                            buffer = ArrayExtension.ShiftElements(buffer, _bufferSegmentOffset, _bufferSize);
-                            _bufferSegmentOffset = 0;
+                        if ((_dictionarySegmentOffset + coderOut.Length + 1) >= _dictionarySize)
+                        {  
+                            dictionary = ArrayExtension.LeftShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
+                            _dictionarySegmentOffset = 0;
                         }
-
-                        _bufferFillNumber -= (ushort)(coderOut.Length + 1);
-                        _bufferSegmentOffset += (ushort)(coderOut.Length + 1);
-                        _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
-
-                        //6
-                        var tmp = inputStream.ReadChars(coderOut.Length + 1);
-                        if (tmp.Length != 0)
-                        {
-                            //Array.Copy(tmp, 0, buffer, (_bufferSize - coderOut.Length - 1), tmp.Length);
-                            tmp.CopyTo(buffer, (_bufferSegmentOffset + _bufferSize - coderOut.Length - 1));
-                            _bufferFillNumber += (ushort)(tmp.Length);
-                        }
-                        //7
-                        outputStream.Write(coderOut);
-                        //Console.Write($"{coderOut.Character}");
-                    }
-                    else
+                        var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
+                        _dictionarySegmentOffset += rest;
+                        _dictionaryFillNumber -= rest;
+                    }   
+                    //4
+                    Array.Copy(buffer, _bufferSegmentOffset, dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1);
+                    //5
+                    if(_bufferSegmentOffset + (coderOut.Length + 1) >= _bufferSize) 
                     {
-                        _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
-                        outputStream.Write(coderOut);
+                        buffer = ArrayExtension.LeftShiftElements(buffer, _bufferSegmentOffset, _bufferSize);
+                        _bufferSegmentOffset = 0;
                     }
+
+                    _bufferFillNumber -= (ushort)(coderOut.Length + 1);
+                    _bufferSegmentOffset += (ushort)(coderOut.Length + 1);
+                    _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
+
+                    //6
+                    var tmp = inputStream.ReadChars(coderOut.Length + 1);
+                    if (tmp.Length != 0)
+                    {
+                        tmp.CopyTo(buffer, (_bufferSegmentOffset + _bufferSize - coderOut.Length - 1));
+                        _bufferFillNumber += (ushort)(tmp.Length);
+                    }
+                    //7
+                    outputStream.Write(coderOut);
                 }
-                //flush data and close files
-                inputStream.Close();
-                inputFile.Close();
-
-                outputStream.Flush();
-                outputStream.Close();
-                outputFile.Close();
+                else
+                {
+                    _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
+                    outputStream.Write(coderOut);
+                }
             }
-            else
-            {
-                throw new Exception("wrong file extension (should ends with .txt)");
-            }
+            //flush data and close files
+            inputStream.Close();
+            inputFile.Close();
 
+            outputStream.Flush();
+            outputStream.Close();
+            outputFile.Close();
         }
 
         /// <summary>
@@ -212,7 +203,6 @@ namespace LZ77.Algorithms
                 var outputStream = new BinaryWriter(outputFile);
 
                 ushort _dictionaryFillNumber = 0;
-
                 ushort _dictionarySegmentOffset = 0;
 
                 while (inputStream.BaseStream.Position != inputStream.BaseStream.Length)
@@ -232,18 +222,14 @@ namespace LZ77.Algorithms
                         Character = inputStream.ReadChar()
                     };
                     //2
-                    //Array.Copy(dictionary, _dictionarySegmentOffset + model.Position, buffer, 0, model.Length);
-                    ReadOnlySpan<char> source = new (dictionary, _dictionarySegmentOffset + model.Position, model.Length);
                     //3
-                    //buffer[model.Length] = model.Character;
+                    ReadOnlySpan<char> source = new (dictionary, _dictionarySegmentOffset + model.Position, model.Length);
                     //4
-                    if(_dictionaryFillNumber > 32700) 
-                        _dictionarySegmentOffset += 0;
                     if ((_dictionaryFillNumber + model.Length + 1) > _dictionarySize)
                     {
                         if ((_dictionarySegmentOffset + model.Length + 1) >= _dictionarySize)
                         {  
-                            dictionary = ArrayExtension.ShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
+                            dictionary = ArrayExtension.LeftShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
                             _dictionarySegmentOffset = 0;
                         }
                         var rest = (ushort)((model.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
@@ -251,13 +237,11 @@ namespace LZ77.Algorithms
                         _dictionaryFillNumber -= rest;
                     }
                     //5
-                    //Array.Copy(buffer, 0, dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, model.Length + 1);
                     Span<char> dest = new (dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, model.Length + 1);
                     source.CopyTo(dest);
                     dest[model.Length] = model.Character;
                     _dictionaryFillNumber += (ushort)(model.Length + 1);
                     //6
-                    //var span = new ReadOnlySpan<char>(buffer);
                     outputStream.Write(dest);
                 }
 
@@ -273,7 +257,6 @@ namespace LZ77.Algorithms
             {
                 throw new Exception("wrong input file extension (should end with .lz77)");
             }
-            
         }
     
         static class KMPSearch
@@ -294,9 +277,9 @@ namespace LZ77.Algorithms
                 {
                     if(buffer[i - 1] == buffer[j])
                     {
-                        tab[i] = j + 1;
-                        ++i;
                         ++j;
+                        tab[i] = j;
+                        ++i;
                     }
                     else
                     {

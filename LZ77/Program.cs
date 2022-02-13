@@ -147,20 +147,20 @@ namespace LZ77
                 lz77 = new Lz77Compressor(Lz77BufferSize.B64);
             }
             
-            if(options.InputFile == string.Empty)
+            if(string.IsNullOrEmpty(options.InputFile))
             {
                 Console.WriteLine("Error: No input filename!");
                 return;
             }
 
-            Stopwatch s1 = new Stopwatch();
             try
             {
+                Stopwatch s1 = new Stopwatch();
                 s1.Start();
-                if(options.Compress)    lz77.CompressFile(options.InputFile);
+                if(options.Compress)    lz77.CompressFile(options.InputFile, options.OutputFile);
                 if(options.Decompress)  lz77.DecompressFile(options.InputFile, options.OutputFile);
                 s1.Stop();
-                if(options.Time) Console.WriteLine("Time: {0}ms",s1.ElapsedMilliseconds);
+                if(options.Time)        Console.WriteLine("Time: {0}ms",s1.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {

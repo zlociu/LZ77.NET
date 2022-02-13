@@ -7,7 +7,7 @@ namespace LZ77.Interfaces
 {
     public interface ICompressor
     {
-        void CompressFile(string fileName);
+        void CompressFile(string fileName, string? outputFileName);
         void DecompressFile(string fileName, string? outputFileName);
     }
 }
