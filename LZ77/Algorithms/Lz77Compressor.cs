@@ -1,11 +1,7 @@
 ﻿using LZ77.Interfaces;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using LZ77.Models;
-using System.Threading.Tasks;
-
 
 namespace LZ77.Algorithms
 {
