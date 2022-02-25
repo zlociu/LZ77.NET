@@ -89,7 +89,7 @@ namespace LZ77.Algorithms
         /// Compress input stream and save into new file with .lz77 extension
         /// </summary>
         /// <param name="fileName">file name of compressing file </param>
-        /// <param name="outputFileName">file name where compressed file will be saved (without '.lz77' suffix</param>
+        /// <param name="outputFileName">file name where compressed file will be saved (without '.lz77' suffix)</param>
         public void CompressFile(string fileName, string? outputFileName)
         {
             var dictionary = new char[2 * _dictionarySize];
@@ -167,7 +167,9 @@ namespace LZ77.Algorithms
                 }
                 else
                 {
-                    _bufferFillNumber = (ushort)Math.Max(_bufferFillNumber - coderOut.Length, 0);
+                    //6
+                    _bufferFillNumber = 0;
+                    //7
                     outputStream.Write(coderOut);
                 }
             }
@@ -188,7 +190,6 @@ namespace LZ77.Algorithms
         public void DecompressFile(string fileName, string? outputFileName)
         {
             var dictionary = new char[2 * _dictionarySize];
-            var buffer = new char[_bufferSize];
 
             if (fileName.EndsWith(".lz77"))
             {
@@ -201,7 +202,7 @@ namespace LZ77.Algorithms
                 ushort _dictionaryFillNumber = 0;
                 ushort _dictionarySegmentOffset = 0;
 
-                while (inputStream.BaseStream.Position != inputStream.BaseStream.Length)
+                while (inputStream.BaseStream.Position + 4 < inputStream.BaseStream.Length)
                 {
                     //1. pobierz (P,C,'a')
                     //2. skopiuj na podstawie P i C z 'dictionary' do 'buffer'
@@ -239,7 +240,15 @@ namespace LZ77.Algorithms
                     _dictionaryFillNumber += (ushort)(model.Length + 1);
                     //6
                     outputStream.Write(dest);
-                }
+                } 
+                //last iteration  
+                var last = new Lz77CoderOutputModel
+                {
+                    Position = inputStream.ReadUInt16(),
+                    Length = inputStream.ReadByte(),
+                    Character = inputStream.ReadChar()
+                };
+                outputStream.Write(new ReadOnlySpan<char>(dictionary, _dictionarySegmentOffset + last.Position, last.Length));
 
                 //flush data and close file
                 inputStream.Close();
@@ -251,7 +260,7 @@ namespace LZ77.Algorithms
             }
             else
             {
-                throw new Exception("wrong input file extension (should end with .lz77)");
+                throw new FileNotFoundException("wrong input file extension (should end with .lz77)");
             }
         }
     
