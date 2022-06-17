@@ -40,13 +40,12 @@ namespace LZ77.Algorithms
         /// </summary>
         /// <param name="number"></param>
         /// <returns></returns>
-        public Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
+        private Lz77CoderOutputModel ConvertShortToCoderOutput(ushort number)
         {
-            return new Lz77CoderOutputModel 
-            {
-                Length = (byte)(number & _bufferSize),
-                Position = (ushort)((number >> (_bufferBitLen)) & _dictionarySize)
-            };
+            return new Lz77CoderOutputModel(
+                Position: (ushort)((number >> (_bufferBitLen)) & _dictionarySize), 
+                Length: (byte)(number & _bufferSize), 
+                Character: (char)0);
         }
 
         /// <summary>
@@ -92,8 +91,8 @@ namespace LZ77.Algorithms
         /// <param name="outputFileName">file name where compressed file will be saved (without '.lz77' suffix)</param>
         public void CompressFile(string fileName, string? outputFileName)
         {
-            var dictionary = new char[2 * _dictionarySize];
-            var buffer = new char[2 * _bufferSize];
+            Span<char> dictionary = new char[2 * _dictionarySize];
+            Span<char> buffer = stackalloc char[2 * _bufferSize];
 
             var inputFile = File.OpenRead(fileName);
             var outputFile = File.Create(outputFileName is null ? (fileName + ".lz77") : (outputFileName + ".lz77"));
@@ -108,7 +107,8 @@ namespace LZ77.Algorithms
             ushort _dictionarySegmentOffset = 0;
 
             var fst = inputStream.ReadChars(_bufferSize);
-            Array.Copy(fst, buffer, fst.Length);
+            fst.CopyTo(buffer);
+            
             _bufferFillNumber = (ushort)fst.Length;
 
             while (_bufferFillNumber > 0)
@@ -126,8 +126,8 @@ namespace LZ77.Algorithms
 
                 //1 2
                 var coderOut = GetLongestSubstring( 
-                    new ReadOnlySpan<char>(dictionary).Slice(_dictionarySegmentOffset, _dictionarySize), 
-                    new ReadOnlySpan<char>(buffer).Slice(_bufferSegmentOffset, _bufferSize));
+                    dictionary.Slice(_dictionarySegmentOffset, _dictionarySize), 
+                    buffer.Slice(_bufferSegmentOffset, _bufferSize));
                 if (coderOut.Length < _bufferFillNumber)
                 {
                     //3
@@ -135,7 +135,9 @@ namespace LZ77.Algorithms
                     {
                         if ((_dictionarySegmentOffset + coderOut.Length + 1) >= _dictionarySize)
                         {  
-                            dictionary = ArrayExtension.LeftShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
+                            Span<char> arr = new char[2 * _dictionarySize];
+                            dictionary.Slice(_dictionarySegmentOffset, _dictionarySize).CopyTo(arr);
+                            dictionary = arr;
                             _dictionarySegmentOffset = 0;
                         }
                         var rest = (ushort)((coderOut.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
@@ -143,11 +145,15 @@ namespace LZ77.Algorithms
                         _dictionaryFillNumber -= rest;
                     }   
                     //4
-                    Array.Copy(buffer, _bufferSegmentOffset, dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1);
+                    buffer
+                        .Slice(_bufferSegmentOffset, coderOut.Length + 1)
+                        .CopyTo(dictionary.Slice(_dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1));
                     //5
                     if(_bufferSegmentOffset + (coderOut.Length + 1) >= _bufferSize) 
                     {
-                        buffer = ArrayExtension.LeftShiftElements(buffer, _bufferSegmentOffset, _bufferSize);
+                        Span<char> arr = new char[2 * _bufferSize];
+                        buffer.Slice(_bufferSegmentOffset, _bufferSize).CopyTo(arr);
+                        buffer = arr;
                         _bufferSegmentOffset = 0;
                     }
 
@@ -159,7 +165,7 @@ namespace LZ77.Algorithms
                     var tmp = inputStream.ReadChars(coderOut.Length + 1);
                     if (tmp.Length != 0)
                     {
-                        tmp.CopyTo(buffer, (_bufferSegmentOffset + _bufferSize - coderOut.Length - 1));
+                        tmp.CopyTo(buffer.Slice((_bufferSegmentOffset + _bufferSize - coderOut.Length - 1), tmp.Length));
                         _bufferFillNumber += (ushort)(tmp.Length);
                     }
                     //7
@@ -189,7 +195,7 @@ namespace LZ77.Algorithms
         /// <param name="fileName">filename where decompressed file will be saved</param>
         public void DecompressFile(string fileName, string? outputFileName)
         {
-            var dictionary = new char[2 * _dictionarySize];
+            Span<char> dictionary = new char[2 * _dictionarySize];
 
             if (fileName.EndsWith(".lz77"))
             {
@@ -212,21 +218,21 @@ namespace LZ77.Algorithms
                     //6. dodaj do pliku wyjsciowego 'buffer'
 
                     //1
-                    var model = new Lz77CoderOutputModel
-                    {
-                        Position = inputStream.ReadUInt16(),
-                        Length = inputStream.ReadByte(),
-                        Character = inputStream.ReadChar()
-                    };
+                    var model = new Lz77CoderOutputModel(
+                        inputStream.ReadUInt16(), 
+                        inputStream.ReadByte(), 
+                        inputStream.ReadChar());
                     //2
                     //3
-                    ReadOnlySpan<char> source = new (dictionary, _dictionarySegmentOffset + model.Position, model.Length);
+                    ReadOnlySpan<char> source = dictionary.Slice(_dictionarySegmentOffset + model.Position, model.Length);
                     //4
                     if ((_dictionaryFillNumber + model.Length + 1) > _dictionarySize)
                     {
                         if ((_dictionarySegmentOffset + model.Length + 1) >= _dictionarySize)
                         {  
-                            dictionary = ArrayExtension.LeftShiftElements(dictionary, _dictionarySegmentOffset, _dictionarySize);
+                            Span<char> arr = new char[2 * _dictionarySize];
+                            dictionary.Slice(_dictionarySegmentOffset, _dictionarySize).CopyTo(arr);
+                            dictionary = arr;
                             _dictionarySegmentOffset = 0;
                         }
                         var rest = (ushort)((model.Length + 1) - (_dictionarySize - _dictionaryFillNumber));
@@ -234,7 +240,7 @@ namespace LZ77.Algorithms
                         _dictionaryFillNumber -= rest;
                     }
                     //5
-                    Span<char> dest = new (dictionary, _dictionarySegmentOffset + _dictionaryFillNumber, model.Length + 1);
+                    Span<char> dest = dictionary.Slice(_dictionarySegmentOffset + _dictionaryFillNumber, model.Length + 1);
                     source.CopyTo(dest);
                     dest[model.Length] = model.Character;
                     _dictionaryFillNumber += (ushort)(model.Length + 1);
@@ -242,13 +248,11 @@ namespace LZ77.Algorithms
                     outputStream.Write(dest);
                 } 
                 //last iteration  
-                var last = new Lz77CoderOutputModel
-                {
-                    Position = inputStream.ReadUInt16(),
-                    Length = inputStream.ReadByte(),
-                    Character = inputStream.ReadChar()
-                };
-                outputStream.Write(new ReadOnlySpan<char>(dictionary, _dictionarySegmentOffset + last.Position, last.Length));
+                var last = new Lz77CoderOutputModel(
+                    Position: inputStream.ReadUInt16(), 
+                    Length: inputStream.ReadByte(), 
+                    Character: inputStream.ReadChar());
+                outputStream.Write(dictionary.Slice(_dictionarySegmentOffset + last.Position, last.Length));
 
                 //flush data and close file
                 inputStream.Close();
@@ -329,7 +333,7 @@ namespace LZ77.Algorithms
 
                         if(i == buffer.Length - 1)
                         {
-                            return new Lz77CoderOutputModel{ Position = (ushort)m, Length = (byte)i, Character = buffer[i] };
+                            return new Lz77CoderOutputModel(Position: (ushort)m, Length: (byte)i, Character: buffer[i]);
                         }
 
                         if (i > bestLength)
@@ -348,7 +352,10 @@ namespace LZ77.Algorithms
                     }
                 }
 
-            return new Lz77CoderOutputModel{ Position = (ushort)bestPos, Length = (byte)bestLength, Character = buffer[bestLength] };
+            return new Lz77CoderOutputModel(
+                Position: (ushort)bestPos, 
+                Length: (byte)bestLength, 
+                Character: buffer[bestLength]);
             }
         }
     }

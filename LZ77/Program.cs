@@ -5,7 +5,7 @@ using LZ77.Interfaces;
 
 namespace LZ77
 {
-    internal record ArgOptions
+    internal class ArgOptions
     {
         public bool Compress { get; set; }
         public bool Decompress { get; set; }
@@ -34,7 +34,7 @@ namespace LZ77
             Console.WriteLine("-h \t\t Show this help menu");
             Console.WriteLine("-d \t\t Decompress specified file");
             Console.WriteLine("-c \t\t Compress specified file");
-            Console.WriteLine("-b <int value> \t Buffer size (32, 64, 128, 256)");
+            Console.WriteLine("-b <int value> \t Buffer size (32, 64, 128, 256), default: 64");
             Console.WriteLine("-o <filename> \t Output filename");
             Console.WriteLine("-t \t\t Measure time");
         }
@@ -80,14 +80,11 @@ namespace LZ77
                                     {
                                         options.OutputFile = parameters[i + 2];
                                         i += 3;
+                                        break;
                                     }
-                                    else
-                                    {
-                                        if (parameters[i + 1].StartsWith('-')) throw new ArgumentException();
-                                        options.OutputFile = parameters[i + 1];
-                                        i += 2;
-                                    }
-                                    
+                                    if (parameters[i + 1].StartsWith('-')) throw new ArgumentException();
+                                    options.OutputFile = parameters[i + 1];
+                                    i += 2;
                                 }
                                 catch(Exception)
                                 {
@@ -126,12 +123,10 @@ namespace LZ77
                     {
                         options.InputFile = parameters[i];
                         i++;
+                        continue;
                     }
-                    else
-                    {
-                        PrintErrorCommand();
-                        return;
-                    }
+                    PrintErrorCommand();
+                    return;
                 }
             }
 
@@ -169,3 +164,4 @@ namespace LZ77
         }
     }
 }
+
