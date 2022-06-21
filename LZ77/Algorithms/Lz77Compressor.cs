@@ -92,7 +92,7 @@ namespace LZ77.Algorithms
         public void CompressFile(string fileName, string? outputFileName)
         {
             Span<char> dictionary = new char[2 * _dictionarySize];
-            Span<char> buffer = stackalloc char[2 * _bufferSize];
+            Span<char> buffer = new char[2 * _bufferSize];
 
             var inputFile = File.OpenRead(fileName);
             var outputFile = File.Create(outputFileName is null ? (fileName + ".lz77") : (outputFileName + ".lz77"));
