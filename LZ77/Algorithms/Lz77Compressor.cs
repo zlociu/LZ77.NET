@@ -106,7 +106,9 @@ namespace LZ77.Algorithms
             ushort _bufferSegmentOffset = 0;
             ushort _dictionarySegmentOffset = 0;
 
-            var fst = inputStream.ReadChars(_bufferSize);
+            bool endData = false;
+
+            var fst = inputStream.ReadChars(2 * _bufferSize);
             fst.CopyTo(buffer);
             
             _bufferFillNumber = (ushort)fst.Length;
@@ -148,11 +150,22 @@ namespace LZ77.Algorithms
                     buffer
                         .Slice(_bufferSegmentOffset, coderOut.Length + 1)
                         .CopyTo(dictionary.Slice(_dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1));
+                        
                     //5
                     if(_bufferSegmentOffset + (coderOut.Length + 1) >= _bufferSize) 
                     {
                         Span<char> arr = new char[2 * _bufferSize];
-                        buffer.Slice(_bufferSegmentOffset, _bufferSize).CopyTo(arr);
+                   
+                        // 6
+                        if(!endData)
+                        {
+                            var tmp = inputStream.ReadChars(2 * _bufferSize - _bufferFillNumber);
+                            tmp.CopyTo(arr.Slice((_bufferFillNumber)));
+                            endData = (tmp.Length < (2 * _bufferSize - _bufferFillNumber));
+                            _bufferFillNumber += (ushort)(tmp.Length);
+                        }
+
+                        buffer.Slice(_bufferSegmentOffset).CopyTo(arr);
                         buffer = arr;
                         _bufferSegmentOffset = 0;
                     }
@@ -160,14 +173,7 @@ namespace LZ77.Algorithms
                     _bufferFillNumber -= (ushort)(coderOut.Length + 1);
                     _bufferSegmentOffset += (ushort)(coderOut.Length + 1);
                     _dictionaryFillNumber += (ushort)(coderOut.Length + 1);
-
-                    //6
-                    var tmp = inputStream.ReadChars(coderOut.Length + 1);
-                    if (tmp.Length != 0)
-                    {
-                        tmp.CopyTo(buffer.Slice((_bufferSegmentOffset + _bufferSize - coderOut.Length - 1), tmp.Length));
-                        _bufferFillNumber += (ushort)(tmp.Length);
-                    }
+                    
                     //7
                     outputStream.Write(coderOut);
                 }
