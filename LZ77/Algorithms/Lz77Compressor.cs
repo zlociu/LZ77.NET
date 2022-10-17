@@ -92,7 +92,7 @@ namespace LZ77.Algorithms
         public void CompressFile(string fileName, string? outputFileName)
         {
             Span<char> dictionary = new char[2 * _dictionarySize];
-            Span<char> buffer = new char[2 * _bufferSize];
+            Span<char> buffer = new char[4 * _bufferSize];
 
             var inputFile = File.OpenRead(fileName);
             var outputFile = File.Create(outputFileName is null ? (fileName + ".lz77") : (outputFileName + ".lz77"));
@@ -108,7 +108,7 @@ namespace LZ77.Algorithms
 
             bool endData = false;
 
-            var fst = inputStream.ReadChars(2 * _bufferSize);
+            var fst = inputStream.ReadChars(4 * _bufferSize);
             fst.CopyTo(buffer);
             
             _bufferFillNumber = (ushort)fst.Length;
@@ -152,16 +152,16 @@ namespace LZ77.Algorithms
                         .CopyTo(dictionary.Slice(_dictionarySegmentOffset + _dictionaryFillNumber, coderOut.Length + 1));
                         
                     //5
-                    if(_bufferSegmentOffset + (coderOut.Length + 1) >= _bufferSize) 
+                    if(_bufferSegmentOffset + (coderOut.Length + 1) >= (3 * _bufferSize)) 
                     {
-                        Span<char> arr = new char[2 * _bufferSize];
+                        Span<char> arr = new char[4 * _bufferSize];
                    
                         // 6
                         if(!endData)
                         {
-                            var tmp = inputStream.ReadChars(2 * _bufferSize - _bufferFillNumber);
+                            var tmp = inputStream.ReadChars(4 * _bufferSize - _bufferFillNumber);
                             tmp.CopyTo(arr.Slice((_bufferFillNumber)));
-                            endData = (tmp.Length < (2 * _bufferSize - _bufferFillNumber));
+                            endData = (tmp.Length < (4 * _bufferSize - _bufferFillNumber));
                             _bufferFillNumber += (ushort)(tmp.Length);
                         }
 
